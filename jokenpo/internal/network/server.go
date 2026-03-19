@@ -12,20 +12,18 @@ type PlayerInfo struct {
 	Name   string
 }
 
-var playerMap = make(map[string]PlayerInfo)
-
 type TCPServer struct {
 	Addr        string
 	connections map[net.Conn]bool
-	players     []PlayerInfo
 	mu          sync.Mutex // Importante para evitar race conditions ao mexer no map/slice
+	playerMap   map[string]PlayerInfo
 }
 
 func NewTCPServer(port string) *TCPServer {
 	return &TCPServer{
 		Addr:        ":" + port,
 		connections: make(map[net.Conn]bool),
-		players:     make([]PlayerInfo, 0),
+		playerMap:   make(map[string]PlayerInfo, 0),
 	}
 }
 
@@ -45,7 +43,7 @@ func (s *TCPServer) Start() {
 			continue
 		}
 
-		if len(s.players) == 2 {
+		if len(s.playerMap) == 2 {
 			fmt.Println(s.connections)
 			fmt.Println("Nova conexão rejeitada: limite atingido")
 			conn.Write([]byte("Servidor cheio. Tente novamente mais tarde.\n"))
@@ -66,9 +64,11 @@ func (s *TCPServer) Start() {
 }
 
 func (s *TCPServer) handleConnection(conn net.Conn) {
+	remoteStr := conn.RemoteAddr().String()
 	defer func() {
 		s.mu.Lock()
 		delete(s.connections, conn)
+		delete(s.playerMap, remoteStr)
 		s.mu.Unlock()
 
 		conn.Close()
@@ -83,9 +83,8 @@ func (s *TCPServer) handleConnection(conn net.Conn) {
 		name := scanner.Text()
 		// name := "pedro"
 		s.mu.Lock()
-		newPlayer := PlayerInfo{conn.RemoteAddr().String(), name}
-		s.players = append(s.players, newPlayer)
-		playerMap[newPlayer.Remote] = newPlayer
+		newPlayer := PlayerInfo{remoteStr, name}
+		s.playerMap[newPlayer.Remote] = newPlayer
 		s.mu.Unlock()
 		fmt.Printf("👤 Jogador identificado: (%s)\n", name)
 	}
@@ -93,7 +92,7 @@ func (s *TCPServer) handleConnection(conn net.Conn) {
 	// Loop de mensagens subsequentes
 	for scanner.Scan() {
 		msg := scanner.Text()
-		name := playerMap[conn.RemoteAddr().String()].Name
+		name := s.playerMap[remoteStr].Name
 
 		fmt.Printf("Mensagem de [%s]: %s\n", name, msg)
 	}
