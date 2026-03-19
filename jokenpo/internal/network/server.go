@@ -45,6 +45,14 @@ func (s *TCPServer) Start() {
 			continue
 		}
 
+		if len(s.players) == 2 {
+			fmt.Println(s.connections)
+			fmt.Println("Nova conexão rejeitada: limite atingido")
+			conn.Write([]byte("Servidor cheio. Tente novamente mais tarde.\n"))
+			conn.Close()
+			continue
+		}
+
 		// Registra a conexão de forma segura
 		s.mu.Lock()
 		s.connections[conn] = true
