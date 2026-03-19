@@ -7,8 +7,10 @@ import (
 	"sync"
 )
 
+type RemoteStr string
+
 type PlayerInfo struct {
-	Remote string
+	Remote RemoteStr
 	Name   string
 }
 
@@ -16,14 +18,14 @@ type TCPServer struct {
 	Addr        string
 	connections map[net.Conn]bool
 	mu          sync.Mutex // Importante para evitar race conditions ao mexer no map/slice
-	playerMap   map[string]PlayerInfo
+	playerMap   map[RemoteStr]PlayerInfo
 }
 
 func NewTCPServer(port string) *TCPServer {
 	return &TCPServer{
 		Addr:        ":" + port,
 		connections: make(map[net.Conn]bool),
-		playerMap:   make(map[string]PlayerInfo, 0),
+		playerMap:   make(map[RemoteStr]PlayerInfo, 0),
 	}
 }
 
@@ -64,7 +66,7 @@ func (s *TCPServer) Start() {
 }
 
 func (s *TCPServer) handleConnection(conn net.Conn) {
-	remoteStr := conn.RemoteAddr().String()
+	remoteStr := RemoteStr(conn.RemoteAddr().String())
 	defer func() {
 		s.mu.Lock()
 		delete(s.connections, conn)
